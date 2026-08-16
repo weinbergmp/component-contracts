@@ -1,0 +1,64 @@
+{
+    "button-primary": {
+        "meta": {
+            "description": "Primary call-to-action button. Use for the single most important action on a screen.",
+            "category": "actions",
+            "version": "1.0.0",
+            "url": "https://design.example.com/components/button-primary",
+            "figma": "https://www.figma.com/design/XXXXXXXXXXXX/Design-System?node-id=1-1"
+        },
+        "markup": {
+            "surface": {
+                "data-type": "container",
+                "direction": "horizontal",
+                "accessibility": {
+                    "role": "button",
+                    "label": "@data.text",
+                    "hint": "Activates the primary action"
+                },
+                "style": {
+                    "background-color": "$color-brand-active",
+                    "corner-radius": "$corner-radius-md",
+                    "padding": "$spacing-md",
+                    "cursor": "pointer"
+                },
+                "children": [
+                    { "icon-left":  { "data-type": "image",  "src": "@data.icon", "visible-if": "@data.icon", "style": {} } },
+                    { "label":      { "data-type": "string", "src": "@data.text",  "style": {} } },
+                    { "icon-right": { "data-type": "image",  "src": "@data.icon", "visible-if": "@data.icon", "style": {} } }
+                ]
+            }
+        },
+        "data": {
+            "text": { "type": "string",       "required": true  },
+            "icon": { "type": "image-source", "required": false }
+        },
+        "events": {
+            "onPress": { "trigger": "surface", "type": "tap" }
+        },
+        "properties": {
+            "size": {
+                "default": "medium",
+                "values": {
+                    "small":  { "surface": { "padding": "$spacing-sm" } },
+                    "medium": { "surface": { "padding": "$spacing-md" } },
+                    "large":  { "surface": { "padding": "$spacing-lg" } }
+                }
+            },
+            "icon-position": {
+                "default": "left",
+                "values": {
+                    "left":  { "icon-left": { "visible": true  }, "icon-right": { "visible": false } },
+                    "right": { "icon-left": { "visible": false }, "icon-right": { "visible": true  } },
+                    "none":  { "icon-left": { "visible": false }, "icon-right": { "visible": false } }
+                }
+            }
+        },
+        "states": {
+            "hover":    { "surface": { "background-color": "$color-brand-hover"    } },
+            "pressed":  { "surface": { "background-color": "$color-brand-pressed"  } },
+            "disabled": { "surface": { "opacity": 0.4, "cursor": "not-allowed"     } },
+            "focused":  { "surface": { "outline": "$focus-ring"                    } }
+        }
+    }
+}

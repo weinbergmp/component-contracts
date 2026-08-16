@@ -1,0 +1,251 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://component-contracts/schema.json",
+    "title": "Component Contract",
+    "description": "A platform-agnostic specification for a design system component.",
+    "type": "object",
+    "additionalProperties": {
+        "$ref": "#/definitions/component"
+    },
+    "definitions": {
+        "component": {
+            "type": "object",
+            "required": ["markup"],
+            "additionalProperties": false,
+            "properties": {
+                "meta":       { "$ref": "#/definitions/meta"          },
+                "markup":     { "$ref": "#/definitions/rootNode"      },
+                "data":       { "$ref": "#/definitions/dataInterface" },
+                "events":     { "$ref": "#/definitions/eventsMap"     },
+                "properties": { "$ref": "#/definitions/propsMap"      },
+                "states":     { "$ref": "#/definitions/statesMap"     }
+            }
+        },
+
+        "meta": {
+            "description": "Human-readable metadata and external references for the component.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "description": { "type": "string" },
+                "category":    { "type": "string" },
+                "version":     { "type": "string" },
+                "url":         { "type": "string", "format": "uri" },
+                "figma":       { "type": "string", "format": "uri" }
+            }
+        },
+
+        "rootNode": {
+            "description": "The single root layer of the component. Must be a named key whose value is a node.",
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "additionalProperties": { "$ref": "#/definitions/node" }
+        },
+
+        "node": {
+            "type": "object",
+            "required": ["data-type"],
+            "properties": {
+                "data-type":     { "$ref": "#/definitions/nodeType"     },
+                "src":           { "$ref": "#/definitions/srcBinding"   },
+                "visible-if":    { "$ref": "#/definitions/srcBinding"   },
+                "direction":     { "$ref": "#/definitions/direction"    },
+                "accessibility": { "$ref": "#/definitions/accessibility"},
+                "style":         { "$ref": "#/definitions/styleMap"     },
+                "children":      { "$ref": "#/definitions/children"     },
+                "visible":       { "type": "boolean"                    }
+            },
+            "allOf": [
+                {
+                    "if":   { "properties": { "data-type": { "const": "container" } } },
+                    "then": {
+                        "properties": { "direction": { "$ref": "#/definitions/direction" } }
+                    }
+                },
+                {
+                    "if":   { "properties": { "data-type": { "enum": ["string", "image", "icon", "input"] } } },
+                    "then": {
+                        "not": { "required": ["children"] }
+                    }
+                }
+            ]
+        },
+
+        "nodeType": {
+            "type": "string",
+            "enum": ["container", "string", "image", "icon", "input", "scroll", "list"]
+        },
+
+        "direction": {
+            "type": "string",
+            "enum": ["horizontal", "vertical"]
+        },
+
+        "srcBinding": {
+            "description": "A data binding (@data.<field>) or a literal string value.",
+            "type": "string",
+            "pattern": "^(@data\\.[a-zA-Z_][a-zA-Z0-9_.]*|.+)$"
+        },
+
+        "accessibility": {
+            "description": "Semantic accessibility metadata for a node.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "role":  { "$ref": "#/definitions/accessibilityRole" },
+                "label": {
+                    "description": "Accessible name. Accepts a literal string or an @data.<field> binding.",
+                    "$ref": "#/definitions/srcBinding"
+                },
+                "hint": {
+                    "description": "A short description of what happens when the user interacts with this element.",
+                    "type": "string"
+                }
+            }
+        },
+
+        "accessibilityRole": {
+            "type": "string",
+            "enum": [
+                "button", "link", "heading", "image", "text",
+                "textfield", "checkbox", "radio", "switch",
+                "progressbar", "list", "listitem", "none"
+            ]
+        },
+
+        "children": {
+            "description": "Ordered array of named child nodes. Each element is a single-key object whose key is the layer name.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "minProperties": 1,
+                "maxProperties": 1,
+                "additionalProperties": { "$ref": "#/definitions/node" }
+            }
+        },
+
+        "dataInterface": {
+            "description": "Declares the external data the component accepts. Every @data.<field> binding in markup must resolve to a key here.",
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/dataField"
+            }
+        },
+
+        "dataField": {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": false,
+            "properties": {
+                "type":     { "$ref": "#/definitions/dataType" },
+                "required": { "type": "boolean" },
+                "default":  {}
+            }
+        },
+
+        "dataType": {
+            "type": "string",
+            "enum": ["string", "number", "boolean", "image-source", "array", "object"]
+        },
+
+        "eventsMap": {
+            "description": "Named events the component emits. Each event declares which layer triggers it and what interaction type fires it.",
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/event"
+            }
+        },
+
+        "event": {
+            "type": "object",
+            "required": ["trigger", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "trigger": {
+                    "description": "The layer ID that captures this interaction.",
+                    "type": "string"
+                },
+                "type": { "$ref": "#/definitions/eventType" }
+            }
+        },
+
+        "eventType": {
+            "type": "string",
+            "enum": ["tap", "long-press", "value-change", "focus", "blur", "submit"]
+        },
+
+        "propsMap": {
+            "description": "Named props, each with a default value and a map of value → layer overrides.",
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/prop"
+            }
+        },
+
+        "prop": {
+            "type": "object",
+            "required": ["values"],
+            "additionalProperties": false,
+            "properties": {
+                "default": { "type": "string" },
+                "values":  {
+                    "description": "Map of prop value name → layer overrides.",
+                    "type": "object",
+                    "additionalProperties": { "$ref": "#/definitions/layerOverridesMap" }
+                }
+            }
+        },
+
+        "statesMap": {
+            "description": "Interaction states. Each state is a map of layer overrides applied on top of base + active property values.",
+            "type": "object",
+            "properties": {
+                "hover":    { "$ref": "#/definitions/layerOverridesMap" },
+                "pressed":  { "$ref": "#/definitions/layerOverridesMap" },
+                "focused":  { "$ref": "#/definitions/layerOverridesMap" },
+                "disabled": { "$ref": "#/definitions/layerOverridesMap" },
+                "selected": { "$ref": "#/definitions/layerOverridesMap" },
+                "loading":  { "$ref": "#/definitions/layerOverridesMap" },
+                "error":    { "$ref": "#/definitions/layerOverridesMap" }
+            },
+            "additionalProperties": { "$ref": "#/definitions/layerOverridesMap" }
+        },
+
+        "layerOverridesMap": {
+            "description": "Map of layer name → override object. Layer names must match IDs defined in markup.",
+            "type": "object",
+            "additionalProperties": { "$ref": "#/definitions/overrides" }
+        },
+
+        "overrides": {
+            "description": "Style and behavior overrides applied to a specific layer.",
+            "type": "object",
+            "properties": {
+                "visible": { "type": "boolean" },
+                "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "src":     { "$ref": "#/definitions/srcBinding" }
+            },
+            "additionalProperties": {
+                "description": "Any style property. String values may reference tokens via $token-name syntax.",
+                "oneOf": [
+                    { "type": "string"  },
+                    { "type": "number"  },
+                    { "type": "boolean" }
+                ]
+            }
+        },
+
+        "styleMap": {
+            "description": "Style properties for a layer. String values may reference tokens via $token-name syntax.",
+            "type": "object",
+            "additionalProperties": {
+                "oneOf": [
+                    { "type": "string"  },
+                    { "type": "number"  },
+                    { "type": "boolean" }
+                ]
+            }
+        }
+    }
+}
