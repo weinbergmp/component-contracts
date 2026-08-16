@@ -300,3 +300,179 @@ A transpiler receives a resolved contract (tokens substituted, prop defaults app
 4. Generate conditional modifiers for each prop and state, in priority order.
 
 The spec intentionally does not prescribe how a transpiler handles idioms beyond the `direction` hint on containers. Transpilers may use additional heuristics (e.g. `list` + `array` binding → `LazyColumn`) or AI-assisted generation for edge cases.
+
+---
+
+## Examples
+
+### Button (primary)
+
+A horizontal container with optional leading and trailing icons flanking a text label. Demonstrates `visible-if` for optional content, multi-layer prop effects, and platform-detected interaction states.
+
+```json
+{
+  "button-primary": {
+    "meta": {
+      "description": "Primary call-to-action button. Use for the single most important action on a screen.",
+      "category": "actions",
+      "version": "1.0.0",
+      "url": "https://design.example.com/components/button-primary",
+      "figma": "https://www.figma.com/design/XXXXXXXXXXXX/Design-System?node-id=1-1"
+    },
+    "markup": {
+      "surface": {
+        "data-type": "container",
+        "direction": "horizontal",
+        "accessibility": {
+          "role": "button",
+          "label": "@data.text",
+          "hint": "Activates the primary action"
+        },
+        "style": {
+          "background-color": "$color-brand-active",
+          "corner-radius":    "$corner-radius-md",
+          "padding":          "$spacing-md",
+          "cursor":           "pointer"
+        },
+        "children": [
+          { "icon-left":  { "data-type": "image",  "src": "@data.icon", "visible-if": "@data.icon", "style": {} } },
+          { "label":      { "data-type": "string", "src": "@data.text",                              "style": {} } },
+          { "icon-right": { "data-type": "image",  "src": "@data.icon", "visible-if": "@data.icon", "style": {} } }
+        ]
+      }
+    },
+    "data": {
+      "text": { "type": "string",       "required": true  },
+      "icon": { "type": "image-source", "required": false }
+    },
+    "events": {
+      "onPress": { "trigger": "surface", "type": "tap" }
+    },
+    "properties": {
+      "size": {
+        "default": "medium",
+        "values": {
+          "small":  { "surface": { "padding": "$spacing-sm" } },
+          "medium": { "surface": { "padding": "$spacing-md" } },
+          "large":  { "surface": { "padding": "$spacing-lg" } }
+        }
+      },
+      "icon-position": {
+        "default": "left",
+        "values": {
+          "left":  { "icon-left": { "visible": true  }, "icon-right": { "visible": false } },
+          "right": { "icon-left": { "visible": false }, "icon-right": { "visible": true  } },
+          "none":  { "icon-left": { "visible": false }, "icon-right": { "visible": false } }
+        }
+      }
+    },
+    "states": {
+      "hover":    { "surface": { "background-color": "$color-brand-hover"    } },
+      "pressed":  { "surface": { "background-color": "$color-brand-pressed"  } },
+      "disabled": { "surface": { "opacity": 0.4, "cursor": "not-allowed"     } },
+      "focused":  { "surface": { "outline": "$focus-ring"                    } }
+    }
+  }
+}
+```
+
+---
+
+### Text input
+
+A vertical stack of label, input field, and helper text. Demonstrates a nested container structure, the `input` node type, multiple emitted events, and states that affect different layers simultaneously (the `error` state changes the field border and the helper text color in one override).
+
+```json
+{
+  "input-text": {
+    "meta": {
+      "description": "Single-line text input with an optional label and helper text.",
+      "category": "forms",
+      "version": "1.0.0"
+    },
+    "markup": {
+      "root": {
+        "data-type": "container",
+        "direction": "vertical",
+        "style": { "gap": "$spacing-xs" },
+        "children": [
+          {
+            "label": {
+              "data-type":  "string",
+              "src":        "@data.label",
+              "visible-if": "@data.label",
+              "style": {
+                "font":  "$text-label-md",
+                "color": "$color-text-secondary"
+              }
+            }
+          },
+          {
+            "field": {
+              "data-type": "container",
+              "direction": "horizontal",
+              "accessibility": {
+                "role":  "textfield",
+                "label": "@data.label"
+              },
+              "style": {
+                "border":           "$border-default",
+                "corner-radius":    "$corner-radius-sm",
+                "padding":          "$spacing-sm",
+                "background-color": "$color-surface"
+              },
+              "children": [
+                {
+                  "input": {
+                    "data-type": "input",
+                    "src":       "@data.value",
+                    "style": {
+                      "flex":  1,
+                      "font":  "$text-body-md",
+                      "color": "$color-text-primary"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "helper": {
+              "data-type":  "string",
+              "src":        "@data.helperText",
+              "visible-if": "@data.helperText",
+              "style": {
+                "font":  "$text-label-sm",
+                "color": "$color-text-secondary"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "data": {
+      "label":      { "type": "string", "required": false },
+      "value":      { "type": "string", "required": false },
+      "helperText": { "type": "string", "required": false }
+    },
+    "events": {
+      "onChange": { "trigger": "input", "type": "value-change" },
+      "onFocus":  { "trigger": "input", "type": "focus"        },
+      "onBlur":   { "trigger": "input", "type": "blur"         }
+    },
+    "states": {
+      "focused":  {
+        "field": { "border": "$border-focused", "background-color": "$color-surface-active" }
+      },
+      "disabled": {
+        "field": { "opacity": 0.5 },
+        "input": { "opacity": 0.5 }
+      },
+      "error": {
+        "field":  { "border": "$border-error"      },
+        "helper": { "color":  "$color-text-error"  }
+      }
+    }
+  }
+}
+```
