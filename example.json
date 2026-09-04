@@ -11,6 +11,7 @@
             "surface": {
                 "data-type": "container",
                 "direction": "horizontal",
+                "size": { "width": "fill", "height": "hug" },
                 "accessibility": {
                     "role": "button",
                     "label": "@data.text",
@@ -23,9 +24,9 @@
                     "cursor": "pointer"
                 },
                 "children": [
-                    { "icon-left":  { "data-type": "image",  "src": "@data.icon", "visible-if": "@data.icon", "style": {} } },
-                    { "label":      { "data-type": "string", "src": "@data.text",  "style": {} } },
-                    { "icon-right": { "data-type": "image",  "src": "@data.icon", "visible-if": "@data.icon", "style": {} } }
+                    { "icon-left":  { "data-type": "image",  "src": "@data.icon", "visible-if": "@data.icon", "size": { "width": 20, "height": 20 }, "style": {} } },
+                    { "label":      { "data-type": "string", "src": "@data.text",  "size": { "width": "hug",  "height": "hug" }, "style": { "font": "$text-label-md" } } },
+                    { "icon-right": { "data-type": "image",  "src": "@data.icon", "visible-if": "@data.icon", "size": { "width": 20, "height": 20 }, "style": {} } }
                 ]
             }
         },
@@ -35,6 +36,15 @@
         },
         "events": {
             "onPress": { "trigger": "surface", "type": "tap" }
+        },
+        "breakpoints": {
+            "sm": {
+                "surface":    { "padding": "$spacing-sm" },
+                "icon-right": { "visible": false }
+            },
+            "lg": {
+                "surface":    { "padding": "$spacing-lg" }
+            }
         },
         "properties": {
             "size": {

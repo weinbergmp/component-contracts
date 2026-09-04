@@ -16,9 +16,10 @@
                 "meta":       { "$ref": "#/definitions/meta"          },
                 "markup":     { "$ref": "#/definitions/rootNode"      },
                 "data":       { "$ref": "#/definitions/dataInterface" },
-                "events":     { "$ref": "#/definitions/eventsMap"     },
-                "properties": { "$ref": "#/definitions/propsMap"      },
-                "states":     { "$ref": "#/definitions/statesMap"     }
+                "events":      { "$ref": "#/definitions/eventsMap"       },
+                "properties":  { "$ref": "#/definitions/propsMap"        },
+                "breakpoints": { "$ref": "#/definitions/breakpointsMap"  },
+                "states":      { "$ref": "#/definitions/statesMap"       }
             }
         },
 
@@ -51,6 +52,7 @@
                 "src":           { "$ref": "#/definitions/srcBinding"   },
                 "visible-if":    { "$ref": "#/definitions/srcBinding"   },
                 "direction":     { "$ref": "#/definitions/direction"    },
+                "size":          { "$ref": "#/definitions/sizeModel"    },
                 "accessibility": { "$ref": "#/definitions/accessibility"},
                 "style":         { "$ref": "#/definitions/styleMap"     },
                 "children":      { "$ref": "#/definitions/children"     },
@@ -80,6 +82,24 @@
         "direction": {
             "type": "string",
             "enum": ["horizontal", "vertical"]
+        },
+
+        "sizeModel": {
+            "description": "Sizing behavior on each axis. Use 'hug' to shrink to content, 'fill' to expand into parent, or a fixed value (number in platform units, or a $token reference).",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "width":  { "$ref": "#/definitions/sizingValue" },
+                "height": { "$ref": "#/definitions/sizingValue" }
+            }
+        },
+
+        "sizingValue": {
+            "description": "'hug' | 'fill' | fixed number (platform units) | '$token' reference.",
+            "oneOf": [
+                { "type": "string" },
+                { "type": "number", "minimum": 0 }
+            ]
         },
 
         "srcBinding": {
@@ -195,6 +215,20 @@
                     "additionalProperties": { "$ref": "#/definitions/layerOverridesMap" }
                 }
             }
+        },
+
+        "breakpointsMap": {
+            "description": "Viewport-size overrides, applied mobile-first on top of base styles and active property values. Keys are named breakpoints (xs, sm, md, lg, xl, 2xl) or custom names.",
+            "type": "object",
+            "properties": {
+                "xs":  { "$ref": "#/definitions/layerOverridesMap" },
+                "sm":  { "$ref": "#/definitions/layerOverridesMap" },
+                "md":  { "$ref": "#/definitions/layerOverridesMap" },
+                "lg":  { "$ref": "#/definitions/layerOverridesMap" },
+                "xl":  { "$ref": "#/definitions/layerOverridesMap" },
+                "2xl": { "$ref": "#/definitions/layerOverridesMap" }
+            },
+            "additionalProperties": { "$ref": "#/definitions/layerOverridesMap" }
         },
 
         "statesMap": {

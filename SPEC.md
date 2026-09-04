@@ -11,24 +11,26 @@ A contract file may define one or more components. Each top-level key is a compo
 ```json
 {
   "button-primary": {
-    "meta":       { ... },
-    "markup":     { ... },
-    "data":       { ... },
-    "events":     { ... },
-    "properties": { ... },
-    "states":     { ... }
+    "meta":        { ... },
+    "markup":      { ... },
+    "data":        { ... },
+    "events":      { ... },
+    "properties":  { ... },
+    "breakpoints": { ... },
+    "states":      { ... }
   }
 }
 ```
 
-| Section      | Required | Purpose |
-|--------------|----------|---------|
-| `meta`       | no       | Human-readable metadata and external links (docs, Figma) |
-| `markup`     | yes      | The layer tree — structure, layout, and base styles |
-| `data`       | no       | The component's external data interface |
-| `events`     | no       | Interactions the component emits to its parent |
-| `properties` | no       | Named props and their per-layer effects |
-| `states`     | no       | Interaction states and their per-layer effects |
+| Section       | Required | Purpose |
+|---------------|----------|---------|
+| `meta`        | no       | Human-readable metadata and external links (docs, Figma) |
+| `markup`      | yes      | The layer tree — structure, layout, and base styles |
+| `data`        | no       | The component's external data interface |
+| `events`      | no       | Interactions the component emits to its parent |
+| `properties`  | no       | Named props and their per-layer effects |
+| `breakpoints` | no       | Viewport-size overrides for layout, style, and visibility |
+| `states`      | no       | Interaction states and their per-layer effects |
 
 ---
 
@@ -75,6 +77,10 @@ The markup section contains a single named root node. Every node in the tree is 
 }
 ```
 
+### Layer names
+
+Layer names — the keys used in `markup` and `children` (e.g. `surface`, `icon-left`, `label`) — are free-form identifiers chosen by the author. No names are reserved or treated specially by the schema. The only requirement is consistency: whatever name is given to a layer in `markup` must be used identically wherever that layer is referenced in `properties`, `states`, and `breakpoints`.
+
 ### Node properties
 
 | Property        | Required | Applies to              | Description |
@@ -83,6 +89,7 @@ The markup section contains a single named root node. Every node in the tree is 
 | `src`           | no       | string, image, icon     | Data binding or literal value |
 | `visible-if`    | no       | all nodes               | Conditionally renders the node based on a data field (see below) |
 | `direction`     | no       | container               | Layout axis: `horizontal` or `vertical` |
+| `size`          | no       | all nodes               | Sizing behavior on each axis (see below) |
 | `accessibility` | no       | all nodes               | Semantic role, label, and hint (see below) |
 | `style`         | no       | all nodes               | Base style properties |
 | `children`      | no       | container, scroll, list | Ordered child nodes |
@@ -127,6 +134,69 @@ Declares the semantic role, accessible name, and interaction hint for a node. Tr
 | `role`  | Semantic role. One of: `button`, `link`, `heading`, `image`, `text`, `textfield`, `checkbox`, `radio`, `switch`, `progressbar`, `list`, `listitem`, `none` |
 | `label` | Accessible name. Accepts a literal string or an `@data.<field>` binding. |
 | `hint`  | Short description of what happens when the user interacts with this element. |
+
+### Sizing
+
+The `size` property declares how a node sizes itself on each axis, independent of its style. It sits alongside `style` on the node (not inside it) because sizing affects layout geometry, not visual appearance.
+
+```json
+"surface": {
+  "data-type": "container",
+  "direction": "horizontal",
+  "size": { "width": "fill", "height": "hug" },
+  ...
+}
+```
+
+| Value          | Description |
+|----------------|-------------|
+| `"hug"`        | Shrink to fit contents. Figma: "Hug". CSS: `width: fit-content`. SwiftUI: default frame behavior. Compose: `wrapContent`. |
+| `"fill"`       | Expand to fill the available space in the parent container. Figma: "Fill". CSS: `flex: 1`. SwiftUI: `.frame(maxWidth: .infinity)`. Compose: `fillMaxWidth`. |
+| number         | Fixed size in platform units (e.g. `48`). |
+| `"$token"`     | Token reference resolving to a fixed size value. |
+
+Both `width` and `height` are optional. Omitting an axis leaves sizing to the platform default.
+
+### Typography
+
+Text style on `string` and `input` nodes is set via the `style` map using either a composite token shorthand or individual properties.
+
+**Composite token (recommended)** — use `font` to reference a named text style that bundles all typography properties. This maps directly to a Figma text style or a CSS class:
+
+```json
+"label": {
+  "data-type": "string",
+  "style": {
+    "font": "$text-body-md"
+  }
+}
+```
+
+**Individual properties** — any text property can be set or overridden individually:
+
+| Property          | Description |
+|-------------------|-------------|
+| `font`            | Composite text style token. Shorthand for all properties below. |
+| `font-family`     | Typeface name or token |
+| `font-size`       | Size in platform units or token |
+| `font-weight`     | Weight value (`400`, `700`, etc.) or token |
+| `font-style`      | `normal`, `italic` |
+| `line-height`     | Absolute value, multiplier, or token |
+| `letter-spacing`  | Tracking value or token |
+| `text-align`      | `left`, `center`, `right`, `justify` |
+| `text-decoration` | `none`, `underline`, `strikethrough` |
+| `text-transform`  | `none`, `uppercase`, `lowercase`, `capitalize` |
+
+**Override precedence** — individual properties override the corresponding value from a composite `font` token, same as the CSS `font` shorthand model:
+
+```json
+"style": {
+  "font":        "$text-body-md",
+  "font-weight": "$font-weight-bold"
+}
+```
+
+**Figma mapping** — `font: "$text-body-md"` applies Figma text style "Body/MD" to the layer. If individual property overrides are also present, the Figma layer is detached from the text style and the specific property is set directly.
 
 ---
 
@@ -233,6 +303,45 @@ Override objects support any style property plus the non-style behavioral keys `
 
 ---
 
+## `breakpoints`
+
+Viewport-size overrides applied on top of base styles and active property values. Same shape as `states`: a map of **breakpoint name → layer IDs → overrides**. Any style property, `direction`, `visible`, or `visible-if` can be overridden per breakpoint.
+
+```json
+"breakpoints": {
+  "sm": {
+    "surface":     { "direction": "vertical", "padding": "$spacing-sm" },
+    "icon-right":  { "visible": false }
+  },
+  "lg": {
+    "surface":     { "padding": "$spacing-xl" }
+  }
+}
+```
+
+### Named breakpoints
+
+Breakpoints follow Tailwind-style naming conventions. The ranges below are defaults — transpilers may map these to whatever pixel values their platform targets.
+
+| Name  | Typical min-width | Notes |
+|-------|-------------------|-------|
+| `xs`  | 0px               | Smallest screens; rarely needed explicitly as it is the base |
+| `sm`  | 480px             | Large phones, portrait |
+| `md`  | 768px             | Tablets, landscape phones |
+| `lg`  | 1024px            | Small desktops, landscape tablets |
+| `xl`  | 1280px            | Standard desktops |
+| `2xl` | 1536px            | Wide/large desktops |
+
+Custom breakpoint names are allowed. Overrides are applied **mobile-first**: the base style applies from `xs` up, and each breakpoint overrides from its min-width upward.
+
+### Platform translation
+
+| Web | SwiftUI | Jetpack Compose |
+|-----|---------|-----------------|
+| CSS media queries / Tailwind breakpoint prefixes | `@Environment(\.horizontalSizeClass)` / `ViewThatFits` | `WindowSizeClass` adaptive layouts |
+
+---
+
 ## `states`
 
 Interaction states applied on top of the resolved base + property values. Same shape as property values: a map of **layer IDs → overrides**.
@@ -273,10 +382,14 @@ Some states (`disabled`, `selected`, `loading`) can feel prop-like since a paren
 Overrides are applied in this order, with later layers winning:
 
 ```
-base style  <  property variant  <  state
+base style  <  property variant  <  breakpoint  <  state
 ```
 
-Example: if `size: small` sets `padding: $spacing-sm` on `surface`, and the component is also in a `disabled` state, both overrides apply independently — they target different properties and do not conflict. If two sources override the same property on the same layer, the rightmost in the stack wins.
+- **Breakpoints** sit above property variants: a `sm` layout change overrides a `size` property's padding, but the component's current interaction state (e.g. `disabled`) always wins over both.
+- **States** are the highest priority because they represent immediate user feedback that must be visible regardless of viewport size.
+- If two sources at the same level override the same property on the same layer, the rightmost in the stack wins.
+
+Example: `size: large` sets `padding: $spacing-lg` on `surface`. The `sm` breakpoint overrides it to `$spacing-sm`. If the component is also `disabled`, the `disabled` state's `opacity: 0.4` applies on top — targeting a different property, so no conflict. If `disabled` also set `padding`, it would win over the breakpoint value.
 
 ---
 
