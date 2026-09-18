@@ -90,6 +90,9 @@ Layer names — the keys used in `markup` and `children` (e.g. `surface`, `icon-
 | `visible-if`    | no       | all nodes               | Conditionally renders the node based on a data field (see below) |
 | `direction`     | no       | container               | Layout axis: `horizontal` or `vertical` |
 | `size`          | no       | all nodes               | Sizing behavior on each axis (see below) |
+| `position`      | no       | all nodes               | Positioning scheme: `"static"` (default), `"relative"`, or `"absolute"` (see below) |
+| `offset`        | no       | absolute nodes          | Inset from each edge when `position` is `"absolute"` (see below) |
+| `layout-only`   | no       | container               | When `true`, marks this node as a structural wrapper with no semantic meaning. Transpilers emit the minimum wrapper needed (e.g. a plain `div`, anonymous `Group`, or `Box`) and suppress accessibility output for it. Default `false`. |
 | `accessibility` | no       | all nodes               | Semantic role, label, and hint (see below) |
 | `style`         | no       | all nodes               | Base style properties |
 | `children`      | no       | container, scroll, list | Ordered child nodes |
@@ -143,7 +146,7 @@ The `size` property declares how a node sizes itself on each axis, independent o
 "surface": {
   "data-type": "container",
   "direction": "horizontal",
-  "size": { "width": "fill", "height": "hug" },
+  "size": { "width": "fill", "height": "hug", "max-width": 480 },
   ...
 }
 ```
@@ -155,48 +158,58 @@ The `size` property declares how a node sizes itself on each axis, independent o
 | number         | Fixed size in platform units (e.g. `48`). |
 | `"$token"`     | Token reference resolving to a fixed size value. |
 
-Both `width` and `height` are optional. Omitting an axis leaves sizing to the platform default.
+`width` and `height` are optional. Omitting an axis leaves sizing to the platform default.
 
-### Typography
+`max-width` and `max-height` are optional caps on the corresponding axis. They accept the same values as `width`/`height` (numbers, tokens) except `"hug"` and `"fill"`. Use them when a node should normally shrink or fill but must not exceed a fixed bound — for example, a logo container that is `width: "fill"` but `max-width: 94`.
 
-Text style on `string` and `input` nodes is set via the `style` map using either a composite token shorthand or individual properties.
+### Positioning
 
-**Composite token (recommended)** — use `font` to reference a named text style that bundles all typography properties. This maps directly to a Figma text style or a CSS class:
+The `position` property controls how a node is placed in the layout. The default is `"static"` (normal document flow). Use `"relative"` to establish a positioning context for absolutely placed children. Use `"absolute"` to pull a node out of flow and pin it relative to its nearest `"relative"` ancestor.
 
 ```json
-"label": {
-  "data-type": "string",
-  "style": {
-    "font": "$text-body-md"
-  }
+"card-content": {
+  "data-type": "container",
+  "position":  "absolute",
+  "offset":    { "top": -1, "right": -1, "bottom": -1, "left": -1 },
+  ...
 }
 ```
 
-**Individual properties** — any text property can be set or overridden individually:
+| `position` value | Description |
+|------------------|-------------|
+| `"static"`       | Default. Node participates in normal flow. |
+| `"relative"`     | Node stays in flow but establishes a positioning context. Children with `position: "absolute"` pin to this node. |
+| `"absolute"`     | Node is removed from flow and positioned by `offset` values relative to the nearest `"relative"` ancestor. |
 
-| Property          | Description |
-|-------------------|-------------|
-| `font`            | Composite text style token. Shorthand for all properties below. |
-| `font-family`     | Typeface name or token |
-| `font-size`       | Size in platform units or token |
-| `font-weight`     | Weight value (`400`, `700`, etc.) or token |
-| `font-style`      | `normal`, `italic` |
-| `line-height`     | Absolute value, multiplier, or token |
-| `letter-spacing`  | Tracking value or token |
-| `text-align`      | `left`, `center`, `right`, `justify` |
-| `text-decoration` | `none`, `underline`, `strikethrough` |
-| `text-transform`  | `none`, `uppercase`, `lowercase`, `capitalize` |
+The `offset` object accepts `top`, `right`, `bottom`, and `left` keys. Values are numbers (platform units) or token references. Negative values extend the node beyond its parent's boundary — useful for rendering borders and shadows without clipping artefacts.
 
-**Override precedence** — individual properties override the corresponding value from a composite `font` token, same as the CSS `font` shorthand model:
+| Platform translation | |
+|---|---|
+| Web | `position: absolute` + `inset` / `top` / `right` / `bottom` / `left` |
+| SwiftUI | `.overlay` / `.background` with `.frame` and alignment, or `GeometryReader` offset |
+| Compose | `Box` with `Modifier.matchParentSize()` or `offset()` |
+
+`position` and `offset` may be overridden in `breakpoints` and `states`.
+
+### Layout-only nodes
+
+Set `"layout-only": true` on a `container` node that exists purely as a structural wrapper — for example, an outer container whose only job is to collapse line-height so that an inner text node achieves precise vertical spacing.
 
 ```json
-"style": {
-  "font":        "$text-body-md",
-  "font-weight": "$font-weight-bold"
+"store-name-outer": {
+  "data-type":   "container",
+  "layout-only": true,
+  "style":       { "line-height": 0 },
+  "children": [
+    { "store-name": { "data-type": "string", "src": "@data.storeName", "style": { "line-height": "20px" } } }
+  ]
 }
 ```
 
-**Figma mapping** — `font: "$text-body-md"` applies Figma text style "Body/MD" to the layer. If individual property overrides are also present, the Figma layer is detached from the text style and the specific property is set directly.
+Transpilers must:
+- Emit the minimum wrapper element for the target platform (anonymous `div`, `Group`, plain `Box`) — never a named component.
+- Suppress all accessibility output for this node (the node has no semantic role).
+- Still apply `style` and `size` correctly; the node is structural but its styles are load-bearing.
 
 ---
 
@@ -213,6 +226,27 @@ Style values may reference design tokens using the `$token-name` syntax. Tokens 
 ```
 
 Any style property value that begins with `$` is treated as a token reference. Bare values are used as-is.
+
+### Data bindings in style properties
+
+Style property values may also accept `@data.<field>` bindings when the value must vary per component instance at runtime. This is distinct from `$token` references (resolved once at transpile time) — `@data.` bindings resolve at render time from the component's incoming data.
+
+```json
+"logo-container": {
+  "data-type": "container",
+  "style": {
+    "background-color": "@data.logoBgColor"
+  }
+}
+```
+
+Any style property that begins with `@data.` is treated as a runtime data binding. The referenced field must be declared in the component's `data` section with an appropriate type (typically `string` for color values). Only scalar style properties that map to a single CSS/platform value are eligible — composite shorthands (e.g. `border`, `shadow`) must be split into their atomic constituents before binding.
+
+| Binding type    | Resolved at     | Syntax        | Example use |
+|-----------------|-----------------|---------------|-------------|
+| Token reference | Transpile time  | `$token-name` | Static design system colors, spacing |
+| Data binding    | Render time     | `@data.field` | Per-instance brand colors, dynamic labels |
+| Bare literal    | Transpile time  | `"#fff"`, `16` | One-off overrides not in the token system |
 
 ---
 
@@ -238,8 +272,9 @@ Declares all external data the component accepts. Every `@data.<field>` binding 
 
 ```json
 "data": {
-  "text": { "type": "string",       "required": true  },
-  "icon": { "type": "image-source", "required": false }
+  "text":       { "type": "string",       "required": true  },
+  "icon":       { "type": "image-source", "required": false },
+  "logoBgColor":{ "type": "string",       "required": true,  "description": "CSS color value for the logo container background. Varies per brand." }
 }
 ```
 
@@ -247,7 +282,7 @@ Declares all external data the component accepts. Every `@data.<field>` binding 
 
 | Type           | Description |
 |----------------|-------------|
-| `string`       | Plain text |
+| `string`       | Plain text or any scalar value rendered as text (including CSS color strings when bound to a style property) |
 | `number`       | Numeric value |
 | `boolean`      | True/false flag |
 | `image-source` | A URL, asset reference, or base64 image |
@@ -299,13 +334,13 @@ Named props the component exposes. Each prop has a `default` value and a `values
 }
 ```
 
-Override objects support any style property plus the non-style behavioral keys `visible`, `opacity`, and `src`.
+Override objects support any style property plus the non-style behavioral keys `visible`, `opacity`, `src`, `position`, and `offset`.
 
 ---
 
 ## `breakpoints`
 
-Viewport-size overrides applied on top of base styles and active property values. Same shape as `states`: a map of **breakpoint name → layer IDs → overrides**. Any style property, `direction`, `visible`, or `visible-if` can be overridden per breakpoint.
+Viewport-size overrides applied on top of base styles and active property values. Same shape as `states`: a map of **breakpoint name → layer IDs → overrides**. Any style property, `direction`, `position`, `offset`, `size`, `visible`, or `visible-if` can be overridden per breakpoint.
 
 ```json
 "breakpoints": {
@@ -377,6 +412,55 @@ Some states (`disabled`, `selected`, `loading`) can feel prop-like since a paren
 
 ---
 
+## Style property reference
+
+### Layout
+
+| Property        | Description |
+|-----------------|-------------|
+| `align-content` | Cross-axis alignment of a multi-line flex container's lines. One of: `flex-start`, `flex-end`, `center`, `space-between`, `space-around`, `stretch` |
+| `align-items`   | Cross-axis alignment of children within a flex line. One of: `flex-start`, `flex-end`, `center`, `stretch`, `baseline` |
+| `align-self`    | Per-child override of the parent's `align-items` |
+| `justify-content` | Main-axis distribution of children. One of: `flex-start`, `flex-end`, `center`, `space-between`, `space-around` |
+| `flex`          | Shorthand for `flex-grow`, `flex-shrink`, `flex-basis` |
+| `flex-wrap`     | Whether children wrap to a new line: `nowrap`, `wrap`, `wrap-reverse` |
+| `gap`           | Space between children. Accepts a single value (row and column) or `"$token"` |
+| `padding`       | Inner spacing. Accepts a single value, or use `padding-top`, `padding-right`, `padding-bottom`, `padding-left` |
+| `overflow`      | Clip behavior: `visible`, `hidden`, `clip`, `auto`, `scroll` |
+
+### Visual
+
+| Property          | Description |
+|-------------------|-------------|
+| `background-color`| Fill color. Accepts a token, hex literal, or `@data.<field>` binding |
+| `border`          | Composite border shorthand token |
+| `border-color`    | Border color. Accepts a token, hex literal, or `@data.<field>` binding |
+| `border-width`    | Border thickness in platform units |
+| `border-style`    | `solid`, `dashed`, `dotted` |
+| `corner-radius`   | Rounded corners. Accepts a token or number |
+| `opacity`         | 0–1 |
+| `shadow`          | Drop shadow token |
+| `cursor`          | `pointer`, `default`, `not-allowed`, etc. (web only) |
+| `outline`         | Focus ring token (web only) |
+
+### Typography
+
+| Property          | Description |
+|-------------------|-------------|
+| `font`            | Composite text style token. Shorthand for all properties below. |
+| `font-family`     | Typeface name or token |
+| `font-size`       | Size in platform units or token |
+| `font-weight`     | Weight value (`400`, `700`, etc.) or token |
+| `font-style`      | `normal`, `italic` |
+| `line-height`     | Absolute value, multiplier, or token. May be set to `0` on layout-only wrapper nodes to collapse the line box. |
+| `letter-spacing`  | Tracking value or token |
+| `text-align`      | `left`, `center`, `right`, `justify` |
+| `text-decoration` | `none`, `underline`, `strikethrough` |
+| `text-transform`  | `none`, `uppercase`, `lowercase`, `capitalize` |
+| `line-clamp`      | Integer. Truncates text after N lines with an ellipsis. Transpilers emit the appropriate platform primitive (`-webkit-line-clamp` on web, `lineLimit()` in SwiftUI, `maxLines` in Compose). |
+
+---
+
 ## Override priority
 
 Overrides are applied in this order, with later layers winning:
@@ -409,8 +493,10 @@ A transpiler receives a resolved contract (tokens substituted, prop defaults app
 
 1. Walk the markup tree depth-first.
 2. Map each `data-type` to the platform's primitive (`container` + `horizontal` → `HStack`, etc.).
-3. Resolve `@data.<field>` bindings to the platform's prop/parameter passing idiom.
+3. Resolve `@data.<field>` bindings to the platform's prop/parameter passing idiom — both in `src` and in style property values.
 4. Generate conditional modifiers for each prop and state, in priority order.
+5. Emit `position: "absolute"` nodes using the target platform's out-of-flow mechanism, applying `offset` values as edge constraints.
+6. Suppress wrapper element generation and accessibility output for nodes marked `layout-only: true`.
 
 The spec intentionally does not prescribe how a transpiler handles idioms beyond the `direction` hint on containers. Transpilers may use additional heuristics (e.g. `list` + `array` binding → `LazyColumn`) or AI-assisted generation for edge cases.
 
@@ -589,3 +675,19 @@ A vertical stack of label, input field, and helper text. Demonstrates a nested c
   }
 }
 ```
+
+---
+
+## Changelog
+
+### v1.1.0
+
+- **`position` node property** — new. Accepts `"static"` (default), `"relative"`, or `"absolute"`. Enables out-of-flow layer placement for rendering effects that depend on precise pixel offsets (e.g. a card content layer that bleeds 1px past the card border to prevent shadow clipping).
+- **`offset` node property** — new. Accepts `top`, `right`, `bottom`, `left` keys (numbers or token references). Only meaningful when `position` is `"absolute"`. Negative values extend the node beyond its parent's bounds.
+- **`layout-only` node property** — new. When `true` on a `container`, signals that the node is a structural wrapper with no semantic role. Transpilers emit the minimum platform wrapper and suppress accessibility output for this node. Enables contracts to faithfully express nested wrapping patterns (e.g. a `line-height: 0` outer container that controls baseline spacing for an inner text node).
+- **`max-width` / `max-height` in `size`** — new. Optional upper bounds on the corresponding axis. Useful for nodes that are `width: "fill"` but must not exceed a fixed maximum (e.g. a logo container that fills but caps at 94px).
+- **`@data.<field>` bindings in `style` properties** — new. Style property values may now accept `@data.<field>` bindings for values that must vary per component instance at render time (e.g. a per-brand background color). Documented in the Token references section alongside `$token` and bare literal syntax.
+- **`align-content` style property** — new. Cross-axis alignment of multi-line flex containers.
+- **`line-clamp` typography property** — new. Truncates text after N lines. Transpiles to `-webkit-line-clamp` (web), `lineLimit()` (SwiftUI), `maxLines` (Compose).
+- **Style property reference table** — new consolidated reference for layout, visual, and typography properties.
+- **Transpiler contract** — updated to reflect `@data.` bindings in style values, `position`/`offset` emission, and `layout-only` suppression.
